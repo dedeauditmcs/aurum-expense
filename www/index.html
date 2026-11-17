@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Aurum Ledger</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-obsidian: #09090B;
+      --card-dark: #121216;
+      --gold-grad: linear-gradient(135deg, #BF953F 0%, #FCF6BA 30%, #B38728 60%, #FBF5B7 85%, #AA771C 100%);
+      --gold-solid: #D4AF37;
+      --glossy-white: linear-gradient(145deg, #FFFFFF 0%, #F1F2F6 60%, #E4E7EC 100%);
+    }
+
+    * {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: var(--bg-obsidian);
+      color: #F4F4F5;
+      padding-top: env(safe-area-inset-top, 16px);
+      padding-bottom: calc(84px + env(safe-area-inset-bottom, 16px));
+      overflow-x: hidden;
+    }
+
+    /* Metallic Gold & Glossy Surfaces */
+    .metallic-gold-bg {
+      background: var(--gold-grad);
+      color: #09090B;
+      box-shadow: 0 8px 24px -4px rgba(212, 175, 55, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.8);
+    }
+
+    .metallic-gold-text {
+      background: var(--gold-grad);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .glossy-white-card {
+      background: var(--glossy-white);
+      color: #09090B;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), inset 0 1.5px 0 rgba(255, 255, 255, 1);
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .glossy-white-card::after {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: linear-gradient(to bottom right, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0) 45%);
+      pointer-events: none;
+    }
+
+    .obsidian-glass {
+      background: linear-gradient(145deg, rgba(28, 28, 34, 0.92), rgba(14, 14, 18, 0.96));
+      border: 1px solid rgba(212, 175, 55, 0.25);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    .fav-chip {
+      background: linear-gradient(145deg, #1A1A20, #101014);
+      border: 1px solid rgba(212, 175, 55, 0.45);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(252, 246, 186, 0.2);
+      transition: transform 0.12s ease, border-color 0.2s ease;
+    }
+    .fav-chip:active {
+      transform: scale(0.95);
+      border-color: #FCF6BA;
+    }
+
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="min-h-screen select-none">
+
+  <!-- HEADER -->
+  <header class="px-5 pt-3 pb-4 flex items-center justify-between">
+    <div>
+      <p class="text-[11px] uppercase tracking-[0.22em] text-zinc-400 font-semibold">Personal Finance</p>
+      <h1 class="text-xl font-extrabold tracking-tight metallic-gold-text">AURUM LEDGER</h1>
+    </div>
+    <div class="flex items-center gap-2">
+      <select id="monthFilter" onchange="renderAll()" class="bg-zinc-900 text-xs font-semibold text-amber-200 border border-amber-500/30 rounded-xl px-3 py-2 outline-none">
+      </select>
+    </div>
+  </header>
+
+  <!-- VIEW 1: DASHBOARD & TRANSAKSI -->
+  <main id="view-home" class="px-5 space-y-5">
+    
+    <!-- GLOSSY WHITE SUMMARY CARD -->
+    <section class="glossy-white-card rounded-3xl p-5">
+      <div class="flex justify-between items-start">
+        <div>
+          <span class="text-[11px] font-bold uppercase tracking-wider text-zinc-500">Sisa Saldo Bulan Ini</span>
+          <h2 id="netBalance" class="text-2xl font-extrabold text-zinc-950 mt-0.5 tracking-tight">Rp 0</h2>
+        </div>
+        <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-zinc-950 text-amber-300 shadow">
+          Offline Vault
+        </span>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3 mt-4 pt-3.5 border-t border-zinc-200/80">
+        <div>
+          <p class="text-[11px] font-semibold text-zinc-500">Pemasukan</p>
+          <p id="totalIncome" class="text-sm font-extrabold text-emerald-700 mt-0.5">Rp 0</p>
+        </div>
+        <div>
+          <p class="text-[11px] font-semibold text-zinc-500">Pengeluaran</p>
+          <p id="totalExpense" class="text-sm font-extrabold text-rose-700 mt-0.5">Rp 0</p>
+        </div>
+      </div>
+
+      <!-- Budget Bar -->
+      <div class="mt-4 pt-3 border-t border-zinc-200/80">
+        <div class="flex justify-between text-[11px] font-bold mb-1.5">
+          <span class="text-zinc-600">Limit Anggaran Bulanan</span>
+          <span id="budgetText" class="text-zinc-900">0%</span>
+        </div>
+        <div class="w-full h-2.5 bg-zinc-200 rounded-full overflow-hidden p-0.5">
+          <div id="budgetBar" class="h-full rounded-full transition-all duration-300" style="width: 0%; background: linear-gradient(90deg, #18181B, #B38728);"></div>
+        </div>
+        <div class="flex justify-between text-[10px] text-zinc-500 mt-1.5 font-medium">
+          <span>Burn rate: <strong id="dailyAvg" class="text-zinc-800">Rp 0</strong>/hari</span>
+          <button onclick="openBudgetModal()" class="underline font-bold text-amber-800">Atur Limit</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAVORITES QUICK INPUT SECTION -->
+    <section>
+      <div class="flex items-center justify-between mb-2.5">
+        <div class="flex items-center gap-1.5">
+          <span class="text-amber-400 text-sm">★</span>
+          <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-200">Favorites (1-Tap Input)</h3>
+        </div>
+        <button onclick="openFavModal()" class="text-[11px] font-bold text-amber-300 hover:underline">+ Kelola Favorit</button>
+      </div>
+      
+      <div id="favoritesList" class="flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
+        <!-- Rendered via JS -->
+      </div>
+    </section>
+
+    <!-- SEARCH & FILTER -->
+    <section class="space-y-2.5">
+      <div class="flex gap-2">
+        <input type="text" id="searchInput" oninput="renderTransactions()" placeholder="Cari transaksi atau catatan..." 
+          class="w-full obsidian-glass rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-zinc-500 outline-none focus:border-amber-400">
+        <select id="categoryFilter" onchange="renderTransactions()" class="obsidian-glass rounded-xl px-3 py-2.5 text-xs text-amber-200 outline-none">
+          <option value="ALL">Semua</option>
+        </select>
+      </div>
+    </section>
+
+    <!-- TRANSACTION LIST -->
+    <section>
+      <div class="flex justify-between items-center mb-2.5">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-300">Riwayat Transaksi</h3>
+        <span id="txCount" class="text-[11px] text-zinc-400">0 item</span>
+      </div>
+      <div id="transactionList" class="space-y-2.5">
+        <!-- Rendered via JS -->
+      </div>
+    </section>
+  </main>
+
+  <!-- VIEW 2: ANALYTICS -->
+  <main id="view-analytics" class="px-5 space-y-5 hidden">
+    <section class="obsidian-glass rounded-3xl p-5">
+      <h3 class="text-xs font-bold uppercase tracking-wider metallic-gold-text mb-3">Distribusi Pengeluaran per Kategori</h3>
+      <div class="relative h-56 flex items-center justify-center">
+        <canvas id="categoryChart"></canvas>
+      </div>
+      <div id="categoryBreakdown" class="mt-4 space-y-2 border-t border-zinc-800 pt-3"></div>
+    </section>
+
+    <section class="obsidian-glass rounded-3xl p-5">
+      <h3 class="text-xs font-bold uppercase tracking-wider metallic-gold-text mb-3">Tren Pengeluaran Harian</h3>
+      <div class="relative h-48">
+        <canvas id="dailyChart"></canvas>
+      </div>
+    </section>
+  </main>
+
+  <!-- VIEW 3: SETTINGS & BACKUP -->
+  <main id="view-settings" class="px-5 space-y-4 hidden">
+    <section class="obsidian-glass rounded-3xl p-5 space-y-4">
+      <h3 class="text-xs font-bold uppercase tracking-wider metallic-gold-text">Manajemen Kategori</h3>
+      <div class="flex gap-2">
+        <input type="text" id="newCatIcon" placeholder="☕" maxlength="2" class="w-12 text-center bg-zinc-900 border border-zinc-700 rounded-xl py-2 text-sm">
+        <input type="text" id="newCatName" placeholder="Nama kategori baru..." class="flex-1 bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 text-xs text-white outline-none">
+        <button onclick="addCustomCategory()" class="metallic-gold-bg px-4 rounded-xl text-xs font-extrabold">Tambah</button>
+      </div>
+      <div id="categoryManagerList" class="flex flex-wrap gap-2 pt-1"></div>
+    </section>
+
+    <section class="obsidian-glass rounded-3xl p-5 space-y-3">
+      <h3 class="text-xs font-bold uppercase tracking-wider metallic-gold-text">Local Storage & Ekspor Data</h3>
+      <p class="text-xs text-zinc-400 leading-relaxed">Seluruh data tersimpan 100% lokal di memori HP Anda. Lakukan backup berkala atau ekspor ke Excel (CSV).</p>
+      
+      <button onclick="exportCSV()" class="w-full glossy-white-card py-3 rounded-xl text-xs font-extrabold text-zinc-950 flex items-center justify-center gap-2">
+        📊 Export ke Excel (.CSV)
+      </button>
+
+      <div class="grid grid-cols-2 gap-2.5">
+        <button onclick="exportJSON()" class="obsidian-glass py-3 rounded-xl text-xs font-bold text-amber-300 border border-amber-500/40">
+          💾 Backup (.JSON)
+        </button>
+        <label class="obsidian-glass py-3 rounded-xl text-xs font-bold text-white border border-zinc-700 text-center cursor-pointer">
+          📂 Restore (.JSON)
+          <input type="file" accept=".json" onchange="importJSON(event)" class="hidden">
+        </label>
+      </div>
+
+      <button onclick="resetAllData()" class="w-full mt-2 py-2.5 rounded-xl text-xs font-bold text-rose-400 border border-rose-900/50 bg-rose-950/20">
+        Hapus Semua Data Lokal
+      </button>
+    </section>
+  </main>
+
+  <!-- FLOATING ADD BUTTON & BOTTOM NAV -->
+  <nav class="fixed bottom-0 inset-x-0 bg-zinc-950/95 backdrop-blur-md border-t border-amber-500/20 px-6 py-2.5 flex items-center justify-between z-40" style="padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));">
+    <button onclick="switchTab('home')" id="nav-home" class="flex flex-col items-center gap-1 text-amber-300">
+      <span class="text-lg">❖</span>
+      <span class="text-[10px] font-bold">Beranda</span>
+    </button>
+
+    <button onclick="openTxModal()" class="metallic-gold-bg -mt-7 w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-extrabold shadow-2xl active:scale-95 transition">
+      +
+    </button>
+
+    <button onclick="switchTab('analytics')" id="nav-analytics" class="flex flex-col items-center gap-1 text-zinc-500">
+      <span class="text-lg">◔</span>
+      <span class="text-[10px] font-bold">Analitik</span>
+    </button>
+
+    <button onclick="switchTab('settings')" id="nav-settings" class="flex flex-col items-center gap-1 text-zinc-500">
+      <span class="text-lg">⚙</span>
+      <span class="text-[10px] font-bold">Data</span>
+    </button>
+  </nav>
+
+  <!-- MODAL: TAMBAH TRANSAKSI -->
+  <div id="txModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-4">
+    <div class="obsidian-glass w-full max-w-md rounded-3xl p-5 space-y-4 border border-amber-400/40">
+      <div class="flex justify-between items-center">
+        <h3 class="text-sm font-extrabold metallic-gold-text uppercase tracking-wider">Catat Transaksi</h3>
+        <button onclick="closeModal('txModal')" class="text-zinc-400 text-lg font-bold">✕</button>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 bg-zinc-900 p-1 rounded-xl">
+        <button type="button" id="btnTypeExpense" onclick="setTxType('expense')" class="py-2 rounded-lg text-xs font-extrabold metallic-gold-bg">Pengeluaran</button>
+        <button type="button" id="btnTypeIncome" onclick="setTxType('income')" class="py-2 rounded-lg text-xs font-bold text-zinc-400">Pemasukan</button>
+      </div>
+
+      <div>
+        <label class="text-[11px] text-zinc-400 font-semibold">Nominal (Rp)</label>
+        <input type="number" id="txAmount" placeholder="0" class="w-full mt-1 bg-zinc-900 border border-zinc-700 focus:border-amber-400 rounded-xl px-4 py-3 text-xl font-extrabold text-white outline-none">
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-[11px] text-zinc-400 font-semibold">Kategori</label>
+          <select id="txCategory" class="w-full mt-1 bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2.5 text-xs text-white outline-none"></select>
+        </div>
+        <div>
+          <label class="text-[11px] text-zinc-400 font-semibold">Tanggal</label>
+          <input type="date" id="txDate" class="w-full mt-1 bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2.5 text-xs text-white outline-none">
+        </div>
+      </div>
+
+      <div>
+        <label class="text-[11px] text-zinc-400 font-semibold">Catatan / Deskripsi</label>
+        <input type="text" id="txNote" placeholder="Contoh: Kopi V60, Isi Bensin, dll..." class="w-full mt-1 bg-zinc-900 border border-zinc-700 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none">
+      </div>
+
+      <label class="flex items-center gap-2 text-xs text-amber-200 cursor-pointer">
+        <input type="checkbox" id="saveAsFavCheck" class="accent-amber-400 w-4 h-4">
+        <span>Simpan juga ke daftar <strong>Favorites</strong> (1-Tap)</span>
+      </label>
+
+      <button onclick="saveTransaction()" class="w-full metallic-gold-bg py-3.5 rounded-xl text-xs font-extrabold uppercase tracking-wider">
+        Simpan Transaksi
+      </button>
+    </div>
+  </div>
+
+  <!-- MODAL: KELOLA FAVORITES -->
+  <div id="favModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-4">
+    <div class="obsidian-glass w-full max-w-md rounded-3xl p-5 space-y-4 border border-amber-400/40 max-h-[85vh] overflow-y-auto">
+      <div class="flex justify-between items-center">
+        <h3 class="text-sm font-extrabold metallic-gold-text uppercase tracking-wider">Kelola Shortcut Favorites</h3>
+        <button onclick="closeModal('favModal')" class="text-zinc-400 text-lg font-bold">✕</button>
+      </div>
+
+      <div class="space-y-2.5 bg-zinc-900/80 p-3.5 rounded-2xl border border-zinc-800">
+        <p class="text-[11px] font-bold text-amber-300">Tambah Favorit Baru</p>
+        <input type="text" id="favTitle" placeholder="Label singkat (misal: Kopi Pagi)" class="w-full bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-xs text-white outline-none">
+        <div class="grid grid-cols-2 gap-2">
+          <input type="number" id="favAmount" placeholder="Nominal (Rp)" class="bg-zinc-950 border border-zinc-700 rounded-xl px-3 py-2 text-xs text-white outline-none">
+          <select id="favCategory" class="bg-zinc-950 border border-zinc-700 rounded-xl px-2.5 py-2 text-xs text-white outline-none"></select>
+        </div>
+        <button onclick="addFavorite()" class="w-full metallic-gold-bg py-2.5 rounded-xl text-xs font-extrabold">+ Tambah ke Bar Favorit</button>
+      </div>
+
+      <div id="favManagerList" class="space-y-2"></div>
+    </div>
+  </div>
+
+  <!-- MODAL: BUDGET -->
+  <div id="budgetModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="obsidian-glass w-full max-w-sm rounded-3xl p-5 space-y-4 border border-amber-400/40">
+      <h3 class="text-sm font-extrabold metallic-gold-text uppercase">Target Anggaran Bulanan</h3>
+      <input type="number" id="budgetInput" placeholder="Masukkan batas pengeluaran (Rp)" class="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-base font-bold text-white outline-none">
+      <div class="flex gap-2">
+        <button onclick="closeModal('budgetModal')" class="flex-1 py-2.5 rounded-xl text-xs font-bold bg-zinc-800 text-zinc-300">Batal</button>
+        <button onclick="saveBudget()" class="flex-1 py-2.5 rounded-xl text-xs font-extrabold metallic-gold-bg">Simpan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toast" class="fixed top-5 left-1/2 -translate-x-1/2 glossy-white-card px-4 py-2.5 rounded-full text-xs font-extrabold text-zinc-950 shadow-2xl z-50 hidden transition-all"></div>
+
+  <script>
+    const STORAGE_KEY = 'aurum_ledger_v1';
+
+    const DEFAULT_DATA = {
+      budget: 5000000,
+      categories: [
+        { id: 'makan', name: 'Makan & Minum', icon: '🍽️' },
+        { id: 'kopi', name: 'Kopi & Kafe', icon: '☕' },
+        { id: 'transport', name: 'Transport & BBM', icon: '⛽' },
+        { id: 'belanja', name: 'Belanja Harian', icon: '🛍️' },
+        { id: 'tagihan', name: 'Tagihan & Utilitas', icon: '⚡' },
+        { id: 'keluarga', name: 'Keluarga & Anak', icon: '🏡' },
+        { id: 'hiburan', name: 'Hiburan & Hobi', icon: '🎮' },
+        { id: 'gaji', name: 'Gaji & Pemasukan', icon: '💰' }
+      ],
+      favorites: [
+        { id: 'f1', title: 'Kopi V60 / Latte', amount: 28000, categoryId: 'kopi' },
+        { id: 'f2', title: 'Makan Siang', amount: 35000, categoryId: 'makan' },
+        { id: 'f3', title: 'Isi BBM / Parkir', amount: 50000, categoryId: 'transport' },
+        { id: 'f4', title: 'Jajan / Minimarket', amount: 25000, categoryId: 'belanja' }
+      ],
+      transactions: []
+    };
+
+    let appData = JSON.parse(localStorage.getItem(STORAGE_KEY)) || DEFAULT_DATA;
+    let currentTxType = 'expense';
+    let catChartInstance = null;
+    let dailyChartInstance = null;
+
+    function saveData() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+    }
+
+    function formatIDR(num) {
+      return 'Rp ' + Number(num || 0).toLocaleString('id-ID');
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.remove('hidden');
+      setTimeout(() => t.classList.add('hidden'), 2200);
+    }
+
+    function initMonthOptions() {
+      const select = document.getElementById('monthFilter');
+      const months = new Set();
+      const now = new Date();
+      months.add(now.toISOString().slice(0, 7));
+      appData.transactions.forEach(tx => months.add(tx.date.slice(0, 7)));
+
+      const sorted = Array.from(months).sort().reverse();
+      select.innerHTML = sorted.map(m => {
+        const [y, mo] = m.split('-');
+        const label = new Date(y, mo - 1).toLocaleDateString('id-ID', { month: 'short', year: 'numeric' });
+        return `<option value="${m}">${label}</option>`;
+      }).join('');
+    }
+
+    function populateCategorySelects() {
+      const options = appData.categories.map(c => `<option value="${c.id}">${c.icon} ${c.name}</option>`).join('');
+      document.getElementById('txCategory').innerHTML = options;
+      document.getElementById('favCategory').innerHTML = options;
+      document.getElementById('categoryFilter').innerHTML = `<option value="ALL">Semua Kategori</option>` + options;
+
+      document.getElementById('categoryManagerList').innerHTML = appData.categories.map(c => `
+        <span class="px-3 py-1.5 rounded-xl bg-zinc-900 border border-zinc-700 text-xs flex items-center gap-1.5">
+          <span>${c.icon}</span><span>${c.name}</span>
+        </span>
+      `).join('');
+    }
+
+    function getCategory(id) {
+      return appData.categories.find(c => c.id === id) || { name: 'Lainnya', icon: '✦' };
+    }
+
+    function renderFavorites() {
+      const container = document.getElementById('favoritesList');
+      if (!appData.favorites.length) {
+        container.innerHTML = `<p class="text-xs text-zinc-500">Belum ada favorit. Ketuk "+ Kelola Favorit".</p>`;
+        return;
+      }
+
+      container.innerHTML = appData.favorites.map(fav => {
+        const cat = getCategory(fav.categoryId);
+        return `
+          <button onclick="quickAddFavorite('${fav.id}')" class="fav-chip shrink-0 rounded-2xl px-3.5 py-2.5 text-left min-w-[132px]">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-base">${cat.icon}</span>
+              <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-400/15 text-amber-300">+1 Tap</span>
+            </div>
+            <p class="text-xs font-bold text-white truncate mt-1.5">${fav.title}</p>
+            <p class="text-[11px] font-extrabold metallic-gold-text mt-0.5">${formatIDR(fav.amount)}</p>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function quickAddFavorite(favId) {
+      const fav = appData.favorites.find(f => f.id === favId);
+      if (!fav) return;
+
+      const today = new Date().toISOString().slice(0, 10);
+      appData.transactions.unshift({
+        id: 'tx_' + Date.now(),
+        type: 'expense',
+        amount: Number(fav.amount),
+        categoryId: fav.categoryId,
+        date: today,
+        note: fav.title + ' ★'
+      });
+
+      saveData();
+      initMonthOptions();
+      renderAll();
+      showToast(`✓ Tercatat: ${fav.title} (${formatIDR(fav.amount)})`);
+    }
+
+    function renderSummary() {
+      const selectedMonth = document.getElementById('monthFilter').value;
+      const monthTx = appData.transactions.filter(t => t.date.startsWith(selectedMonth));
+
+      const income = monthTx.filter(t => t.type === 'income').reduce((a, b) => a + b.amount, 0);
+      const expense = monthTx.filter(t => t.type === 'expense').reduce((a, b) => a + b.amount, 0);
+      const balance = income - expense;
+
+      document.getElementById('netBalance').textContent = formatIDR(balance);
+      document.getElementById('totalIncome').textContent = formatIDR(income);
+      document.getElementById('totalExpense').textContent = formatIDR(expense);
+
+      const pct = appData.budget > 0 ? Math.min(100, Math.round((expense / appData.budget) * 100)) : 0;
+      document.getElementById('budgetText').textContent = `${pct}% (${formatIDR(appData.budget)})`;
+      const bar = document.getElementById('budgetBar');
+      bar.style.width = `${pct}%`;
+      bar.style.background = pct >= 90 ? '#BE123C' : 'linear-gradient(90deg, #18181B, #B38728)';
+
+      const dayOfMonth = new Date().getDate();
+      document.getElementById('dailyAvg').textContent = formatIDR(Math.round(expense / Math.max(1, dayOfMonth)));
+    }
+
+    function renderTransactions() {
+      const selectedMonth = document.getElementById('monthFilter').value;
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      const catFilter = document.getElementById('categoryFilter').value;
+
+      const filtered = appData.transactions.filter(t => {
+        const matchMonth = t.date.startsWith(selectedMonth);
+        const matchCat = catFilter === 'ALL' || t.categoryId === catFilter;
+        const catName = getCategory(t.categoryId).name.toLowerCase();
+        const matchSearch = (t.note || '').toLowerCase().includes(search) || catName.includes(search);
+        return matchMonth && matchCat && matchSearch;
+      });
+
+      document.getElementById('txCount').textContent = `${filtered.length} transaksi`;
+      const list = document.getElementById('transactionList');
+
+      if (!filtered.length) {
+        list.innerHTML = `<div class="obsidian-glass rounded-2xl p-6 text-center text-xs text-zinc-500">Belum ada transaksi pada filter ini.</div>`;
+        return;
+      }
+
+      list.innerHTML = filtered.map(t => {
+        const cat = getCategory(t.categoryId);
+        const isInc = t.type === 'income';
+        return `
+          <div class="obsidian-glass rounded-2xl p-3.5 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="w-10 h-10 rounded-xl bg-zinc-900 border border-amber-500/20 flex items-center justify-center text-lg shrink-0">
+                ${cat.icon}
+              </div>
+              <div class="min-w-0">
+                <p class="text-xs font-bold text-white truncate">${t.note || cat.name}</p>
+                <p class="text-[10px] text-zinc-400 mt-0.5">${cat.name} • ${t.date}</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2.5 shrink-0">
+              <span class="text-xs font-extrabold ${isInc ? 'text-emerald-400' : 'text-amber-200'}">
+                ${isInc ? '+' : '-'}${formatIDR(t.amount)}
+              </span>
+              <button onclick="deleteTransaction('${t.id}')" class="text-zinc-600 hover:text-rose-400 text-xs px-1">✕</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function deleteTransaction(id) {
+      appData.transactions = appData.transactions.filter(t => t.id !== id);
+      saveData();
+      renderAll();
+      showToast('Transaksi dihapus');
+    }
+
+    function renderCharts() {
+      const selectedMonth = document.getElementById('monthFilter').value;
+      const expenses = appData.transactions.filter(t => t.date.startsWith(selectedMonth) && t.type === 'expense');
+
+      const catTotals = {};
+      expenses.forEach(e => {
+        catTotals[e.categoryId] = (catTotals[e.categoryId] || 0) + e.amount;
+      });
+
+      const labels = Object.keys(catTotals).map(id => getCategory(id).name);
+      const values = Object.values(catTotals);
+      const palette = ['#D4AF37', '#F4F4F5', '#856404', '#71717A', '#FCF6BA', '#3F3F46', '#B38728'];
+
+      if (catChartInstance) catChartInstance.destroy();
+      const ctx1 = document.getElementById('categoryChart').getContext('2d');
+      catChartInstance = new Chart(ctx1, {
+        type: 'doughnut',
+        data: {
+          labels: labels.length ? labels : ['Belum ada data'],
+          datasets: [{
+            data: values.length ? values : [1],
+            backgroundColor: values.length ? palette : ['#27272A'],
+            borderColor: '#09090B',
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom', labels: { color: '#E4E4E7', font: { size: 10 } } } }
+        }
+      });
+
+      const totalExp = values.reduce((a, b) => a + b, 0);
+      document.getElementById('categoryBreakdown').innerHTML = Object.entries(catTotals)
+        .sort((a, b) => b[1] - a[1])
+        .map(([id, val]) => {
+          const cat = getCategory(id);
+          const pct = totalExp ? Math.round((val / totalExp) * 100) : 0;
+          return `
+            <div class="flex justify-between items-center text-xs">
+              <span class="text-zinc-300">${cat.icon} ${cat.name} <strong class="text-amber-300">(${pct}%)</strong></span>
+              <span class="font-bold text-white">${formatIDR(val)}</span>
+            </div>
+          `;
+        }).join('');
+
+      // Daily Bar Chart
+      const dailyMap = {};
+      expenses.forEach(e => {
+        const day = e.date.slice(8, 10);
+        dailyMap[day] = (dailyMap[day] || 0) + e.amount;
+      });
+      const days = Object.keys(dailyMap).sort();
+
+      if (dailyChartInstance) dailyChartInstance.destroy();
+      const ctx2 = document.getElementById('dailyChart').getContext('2d');
+      dailyChartInstance = new Chart(ctx2, {
+        type: 'bar',
+        data: {
+          labels: days.map(d => 'Tgl ' + d),
+          datasets: [{
+            label: 'Pengeluaran',
+            data: days.map(d => dailyMap[d]),
+            backgroundColor: '#D4AF37',
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: '#A1A1AA', font: { size: 10 } }, grid: { display: false } },
+            y: { ticks: { color: '#A1A1AA', font: { size: 10 } }, grid: { color: '#27272A' } }
+          }
+        }
+      });
+    }
+
+    function openTxModal() {
+      document.getElementById('txDate').value = new Date().toISOString().slice(0, 10);
+      document.getElementById('txAmount').value = '';
+      document.getElementById('txNote').value = '';
+      document.getElementById('saveAsFavCheck').checked = false;
+      setTxType('expense');
+      document.getElementById('txModal').classList.remove('hidden');
+    }
+
+    function setTxType(type) {
+      currentTxType = type;
+      const btnExp = document.getElementById('btnTypeExpense');
+      const btnInc = document.getElementById('btnTypeIncome');
+      if (type === 'expense') {
+        btnExp.className = 'py-2 rounded-lg text-xs font-extrabold metallic-gold-bg';
+        btnInc.className = 'py-2 rounded-lg text-xs font-bold text-zinc-400';
+      } else {
+        btnInc.className = 'py-2 rounded-lg text-xs font-extrabold metallic-gold-bg';
+        btnExp.className = 'py-2 rounded-lg text-xs font-bold text-zinc-400';
+      }
+    }
+
+    function saveTransaction() {
+      const amount = Number(document.getElementById('txAmount').value);
+      const categoryId = document.getElementById('txCategory').value;
+      const date = document.getElementById('txDate').value;
+      const note = document.getElementById('txNote').value.trim();
+      const saveFav = document.getElementById('saveAsFavCheck').checked;
+
+      if (!amount || amount <= 0) return showToast('Masukkan nominal yang valid');
+
+      appData.transactions.unshift({
+        id: 'tx_' + Date.now(),
+        type: currentTxType,
+        amount,
+        categoryId,
+        date,
+        note: note || getCategory(categoryId).name
+      });
+
+      if (saveFav && currentTxType === 'expense') {
+        appData.favorites.push({
+          id: 'fav_' + Date.now(),
+          title: note || getCategory(categoryId).name,
+          amount,
+          categoryId
+        });
+      }
+
+      saveData();
+      closeModal('txModal');
+      initMonthOptions();
+      renderAll();
+      showToast('✓ Transaksi tersimpan');
+    }
+
+    function openFavModal() {
+      renderFavManager();
+      document.getElementById('favModal').classList.remove('hidden');
+    }
+
+    function renderFavManager() {
+      document.getElementById('favManagerList').innerHTML = appData.favorites.map(f => {
+        const cat = getCategory(f.categoryId);
+        return `
+          <div class="flex items-center justify-between bg-zinc-900 p-3 rounded-xl border border-zinc-800">
+            <div>
+              <p class="text-xs font-bold text-white">${cat.icon} ${f.title}</p>
+              <p class="text-[11px] text-amber-300 font-semibold">${formatIDR(f.amount)}</p>
+            </div>
+            <button onclick="removeFavorite('${f.id}')" class="text-xs text-rose-400 font-bold px-2 py-1">Hapus</button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function addFavorite() {
+      const title = document.getElementById('favTitle').value.trim();
+      const amount = Number(document.getElementById('favAmount').value);
+      const categoryId = document.getElementById('favCategory').value;
+
+      if (!title || amount <= 0) return showToast('Lengkapi label dan nominal');
+
+      appData.favorites.push({ id: 'fav_' + Date.now(), title, amount, categoryId });
+      document.getElementById('favTitle').value = '';
+      document.getElementById('favAmount').value = '';
+      saveData();
+      renderFavorites();
+      renderFavManager();
+      showToast('★ Ditambahkan ke Favorites');
+    }
+
+    function removeFavorite(id) {
+      appData.favorites = appData.favorites.filter(f => f.id !== id);
+      saveData();
+      renderFavorites();
+      renderFavManager();
+    }
+
+    function addCustomCategory() {
+      const icon = document.getElementById('newCatIcon').value.trim() || '✦';
+      const name = document.getElementById('newCatName').value.trim();
+      if (!name) return;
+      appData.categories.push({ id: 'cat_' + Date.now(), name, icon });
+      document.getElementById('newCatIcon').value = '';
+      document.getElementById('newCatName').value = '';
+      saveData();
+      populateCategorySelects();
+      showToast('Kategori ditambahkan');
+    }
+
+    function openBudgetModal() {
+      document.getElementById('budgetInput').value = appData.budget;
+      document.getElementById('budgetModal').classList.remove('hidden');
+    }
+
+    function saveBudget() {
+      const val = Number(document.getElementById('budgetInput').value);
+      if (val >= 0) {
+        appData.budget = val;
+        saveData();
+        renderSummary();
+      }
+      closeModal('budgetModal');
+      showToast('Limit anggaran diperbarui');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.add('hidden');
+    }
+
+    function switchTab(tab) {
+      ['home', 'analytics', 'settings'].forEach(t => {
+        document.getElementById('view-' + t).classList.toggle('hidden', t !== tab);
+        const nav = document.getElementById('nav-' + t);
+        if (nav) nav.className = t === tab ? 'flex flex-col items-center gap-1 text-amber-300' : 'flex flex-col items-center gap-1 text-zinc-500';
+      });
+      if (tab === 'analytics') renderCharts();
+    }
+
+    function exportCSV() {
+      const rows = [['ID', 'Tanggal', 'Tipe', 'Kategori', 'Nominal', 'Catatan']];
+      appData.transactions.forEach(t => {
+        rows.push([t.id, t.date, t.type, getCategory(t.categoryId).name, t.amount, `"${(t.note || '').replace(/"/g, '""')}"`]);
+      });
+      const csv = rows.map(r => r.join(',')).join('\n');
+      downloadFile(csv, `Aurum_Ledger_${new Date().toISOString().slice(0,10)}.csv`, 'text/csv');
+    }
+
+    function exportJSON() {
+      downloadFile(JSON.stringify(appData, null, 2), `Aurum_Backup_${new Date().toISOString().slice(0,10)}.json`, 'application/json');
+    }
+
+    function importJSON(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        try {
+          const parsed = JSON.parse(ev.target.result);
+          if (parsed.transactions && parsed.categories) {
+            appData = parsed;
+            saveData();
+            initMonthOptions();
+            populateCategorySelects();
+            renderAll();
+            showToast('✓ Data berhasil di-restore');
+          }
+        } catch {
+          showToast('File JSON tidak valid');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function downloadFile(content, filename, type) {
+      const blob = new Blob([content], { type });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function resetAllData() {
+      if (confirm('Hapus seluruh catatan transaksi lokal?')) {
+        localStorage.removeItem(STORAGE_KEY);
+        location.reload();
+      }
+    }
+
+    function renderAll() {
+      renderFavorites();
+      renderSummary();
+      renderTransactions();
+    }
+
+    // Boot
+    initMonthOptions();
+    populateCategorySelects();
+    renderAll();
+  </script>
+</body>
+</html>
