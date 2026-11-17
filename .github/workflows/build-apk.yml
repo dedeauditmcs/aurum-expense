@@ -24,7 +24,7 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Setup Android SDK & Android 17 Platform
+      - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         with:
           packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
@@ -35,13 +35,14 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      - name: Configure Android 17 Target & Edge-to-Edge Support
+      - name: Configure Stable Android SDK Target
         run: |
-          # Pastikan compileSdk dan targetSdk menggunakan versi tertinggi yang terpasang
-          LATEST_API=$(ls $ANDROID_HOME/platforms | sed 's/android-//' | sort -n | tail -1)
-          echo "Detected Highest Android API: $LATEST_API"
-          sed -i "s/compileSdkVersion = [0-9]*/compileSdkVersion = $LATEST_API/g" android/variables.gradle
-          sed -i "s/targetSdkVersion = [0-9]*/targetSdkVersion = $LATEST_API/g" android/variables.gradle
+          # Hanya ambil versi SDK stabil (angka murni) agar tidak terkena versi beta
+          STABLE_API=$(ls $ANDROID_HOME/platforms | grep -E '^android-[0-9]+$' | sed 's/android-//' | sort -n | tail -1)
+          STABLE_API=${STABLE_API:-36}
+          echo "Using Stable Android API: $STABLE_API"
+          sed -i "s/compileSdkVersion = .*/compileSdkVersion = $STABLE_API/g" android/variables.gradle
+          sed -i "s/targetSdkVersion = .*/targetSdkVersion = $STABLE_API/g" android/variables.gradle
 
       - name: Build Debug APK
         run: |
