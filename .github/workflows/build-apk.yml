@@ -1,0 +1,56 @@
+name: Build Android 17 APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup Java 21 (Required for Android 17 Gradle)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Android SDK & Android 17 Platform
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
+
+      - name: Install Dependencies & Generate Android Project
+        run: |
+          npm install
+          npx cap add android
+          npx cap sync android
+
+      - name: Configure Android 17 Target & Edge-to-Edge Support
+        run: |
+          # Pastikan compileSdk dan targetSdk menggunakan versi tertinggi yang terpasang
+          LATEST_API=$(ls $ANDROID_HOME/platforms | sed 's/android-//' | sort -n | tail -1)
+          echo "Detected Highest Android API: $LATEST_API"
+          sed -i "s/compileSdkVersion = [0-9]*/compileSdkVersion = $LATEST_API/g" android/variables.gradle
+          sed -i "s/targetSdkVersion = [0-9]*/targetSdkVersion = $LATEST_API/g" android/variables.gradle
+
+      - name: Build Debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Aurum-Ledger-Android17-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
